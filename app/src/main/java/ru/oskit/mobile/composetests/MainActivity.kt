@@ -1,38 +1,48 @@
 package ru.oskit.mobile.composetests
 
-import android.graphics.Paint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowCircleDown
+import androidx.compose.material.icons.filled.ArrowCircleLeft
+import androidx.compose.material.icons.filled.ArrowCircleRight
+import androidx.compose.material.icons.filled.ArrowCircleUp
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -43,13 +53,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import ru.oskit.mobile.composetests.ui.theme.ComposeTestsTheme
+import ru.oskit.mobile.composetests.ui.theme.grayEl
+import ru.oskit.mobile.composetests.ui.theme.greenBg
 import kotlin.random.Random
 
 data class SnakeState(
     val food: Pair<Int, Int>,
-    val snake: List<Pair<Int, Int>>,
-
+    val snake: List<Triple<Int, Int, BodyDir>>,
+    val length: Int,
 )
+enum class BodyDir{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+}
 
 const val boardSize = 16
 
@@ -63,21 +81,31 @@ class MainActivity : ComponentActivity() {
             ComposeTestsTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = greenBg
                 ) {
-                    Box {
+                    Column(modifier = Modifier.fillMaxSize()) {
 
                         val snakeState by logic.snake.collectAsState()
 
+                        Text(
+                            text = "Score: " + snakeState.length.toString(),
+                            modifier = Modifier.padding(start = 30.dp, top = 10.dp),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = grayEl
+                        )
+
                         AnimatedBox(
                             modifier = Modifier
+                                .padding(20.dp)
                                 .size(300.dp, 300.dp)
-                                .background(Color.Blue),
+                                .border(width = 2.dp, color = grayEl)
+                                .align(CenterHorizontally),
                             state = snakeState
                         )
 
                         Buttons(
-                            modifier = Modifier.align(Alignment.BottomCenter),
+                            modifier = Modifier.align(CenterHorizontally),
                             left = { logic.turnLeft() },
                             right = { logic.turnRight() },
                             up = { logic.turnUp() },
@@ -96,43 +124,184 @@ fun AnimatedBox(
     state: SnakeState,
 ){
     Canvas(
-        modifier = modifier.size(500.dp, 500.dp)
+        modifier = modifier
     ){
 
             val tileSize = size.width / boardSize
             val sp = state.snake
-        sp.forEach {
+        sp.forEachIndexed {ind, it ->
+
             val newPos = Offset(it.first * tileSize,it.second * tileSize )
-            snakeBody(newPos, tileSize)
+            if(ind == 0) {
+                when (it.third) {
+                    BodyDir.UP -> snakeUp(newPos, tileSize)
+                    BodyDir.DOWN -> snakeDown(newPos, tileSize)
+                    BodyDir.RIGHT -> snakeRight(newPos, tileSize)
+                    BodyDir.LEFT -> snakeLeft(newPos, tileSize)
+                }
+            }else if(it.third != sp[ind - 1].third){
+                when{
+                    it.third == BodyDir.UP && sp[ind - 1].third == BodyDir.RIGHT -> snakeBodyRect(newPos, tileSize, 180f)
+                    it.third == BodyDir.UP && sp[ind - 1].third == BodyDir.LEFT -> snakeBodyRect(newPos, tileSize, 270f)
+                    it.third == BodyDir.RIGHT && sp[ind - 1].third == BodyDir.UP -> snakeBodyRect(newPos, tileSize, 0f)
+                    it.third == BodyDir.RIGHT && sp[ind - 1].third == BodyDir.DOWN -> snakeBodyRect(newPos, tileSize, 270f)
+                    it.third == BodyDir.DOWN && sp[ind - 1].third == BodyDir.LEFT -> snakeBodyRect(newPos, tileSize, 0f)
+                    it.third == BodyDir.DOWN && sp[ind - 1].third == BodyDir.RIGHT -> snakeBodyRect(newPos, tileSize, 90f)
+                    it.third == BodyDir.LEFT && sp[ind - 1].third == BodyDir.UP -> snakeBodyRect(newPos, tileSize, 90f)
+                    it.third == BodyDir.LEFT && sp[ind - 1].third == BodyDir.DOWN -> snakeBodyRect(newPos, tileSize, 180f)
+                }
+
+            }else {
+                when (it.third) {
+                    BodyDir.UP -> snakeBodyVert(newPos, tileSize)
+                    BodyDir.DOWN -> snakeBodyVert(newPos, tileSize)
+                    BodyDir.RIGHT -> snakeBodyHor(newPos, tileSize)
+                    BodyDir.LEFT -> snakeBodyHor(newPos, tileSize)
+                }
+            }
+            //snakeLeft(newPos, tileSize)
         }
         food(
-            position = Offset(state.food.first * tileSize + tileSize / 2, state.food.second * tileSize + tileSize / 2),
-            tileSize = tileSize
+            p = Offset(state.food.first * tileSize, state.food.second * tileSize),
+            ts = tileSize
         )
-
     }
 }
 
-    private fun DrawScope.snakeBody(
-        position: Offset,
-        tileSize: Float
+    private fun DrawScope.snakeRight(p: Offset, tileSize: Float){ // p - position, ts - title size
+        val path = Path().apply {
+            moveTo(p.x, p.y)
+            lineTo(p.x + tileSize, p.y + tileSize / 5)
+            lineTo(p.x + tileSize, p.y + tileSize - tileSize / 5)
+            lineTo(p.x, p.y + tileSize)
+            lineTo(p.x, p.y + tileSize - tileSize / 5)
+            lineTo(p.x + tileSize / 5, p.y + tileSize - tileSize / 5)
+            lineTo(p.x + tileSize / 5, p.y + tileSize / 5)
+            lineTo(p.x, p.y + tileSize / 5)
+            close()
+        }
+        drawPath(path = path, color = grayEl,)
+    }
+
+    private fun DrawScope.snakeLeft(p: Offset, ts: Float){ // p - position, ts - title size
+        val path = Path().apply {
+            moveTo(p.x, p.y + ts / 5)
+            lineTo(p.x + ts, p.y)
+            lineTo(p.x + ts, p.y + ts / 5)
+            lineTo(p.x + ts - ts / 5, p.y + ts / 5)
+            lineTo(p.x + ts - ts / 5, p.y + ts - ts / 5)
+            lineTo(p.x + ts, p.y + ts - ts / 5)
+            lineTo(p.x + ts, p.y + ts)
+            lineTo(p.x, p.y + ts - ts / 5)
+            close()
+        }
+        drawPath(path = path, color = grayEl)
+    }
+
+    private fun DrawScope.snakeUp(p: Offset, ts: Float){ // p - position, ts - title size
+        val path = Path().apply {
+            moveTo(p.x + ts / 5, p.y)
+            lineTo(p.x + ts - ts / 5, p.y)
+            lineTo(p.x + ts, p.y + ts)
+            lineTo(p.x + ts - ts / 5, p.y + ts)
+            lineTo(p.x + ts - ts / 5, p.y + ts - ts / 5)
+            lineTo(p.x + ts / 5, p.y + ts - ts / 5)
+            lineTo(p.x + ts / 5, p.y + ts)
+            lineTo(p.x, p.y + ts)
+            close()
+        }
+        drawPath(path = path, color = grayEl)
+    }
+
+    private fun DrawScope.snakeDown(p: Offset, ts: Float){
+        val path = Path().apply {
+            moveTo(p.x, p.y)
+            lineTo(p.x + ts / 5, p.y)
+            lineTo(p.x + ts / 5, p.y + ts / 5)
+            lineTo(p.x + ts - ts / 5, p.y + ts / 5)
+            lineTo(p.x + ts - ts / 5, p.y)
+            lineTo(p.x + ts, p.y)
+            lineTo(p.x + ts - ts / 5, p.y + ts)
+            lineTo(p.x + ts / 5, p.y + ts)
+            close()
+        }
+        drawPath(path = path, color = grayEl)
+    }
+
+    private fun DrawScope.snakeBodyHor(
+        p: Offset, // position
+        ts: Float
     ){
-        drawRoundRect(
-            brush = Brush.radialGradient(listOf(Color.Red, Color.Yellow, Color.Green)),
-            cornerRadius = CornerRadius(5f, 5f),
-            size = Size(tileSize, tileSize),
-            topLeft = position
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x, p.y  + ts/5),
+            size = Size(ts, ts - ts/5 * 2)
         )
     }
 
-    private fun DrawScope.food(
-        position: Offset,
-        tileSize: Float
+    private fun DrawScope.snakeBodyVert(
+        p: Offset, // position
+        ts: Float
     ){
-        drawCircle(
-            brush = Brush.radialGradient(listOf(Color.Black, Color.Cyan)),
-            radius = tileSize / 2f,
-            center = position
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x + ts/5, p.y),
+            size = Size(ts - ts / 5 * 2, ts)
+        )
+    }
+
+
+    private fun DrawScope.snakeBodyRect(
+        p: Offset, // position
+        ts: Float,
+        rec: Float
+    ){
+
+        val path = Path().apply {
+            moveTo(p.x, p.y + ts / 5)
+            lineTo(p.x + ts / 5, p.y + ts / 5)
+            lineTo(p.x + ts / 5, p.y)
+            lineTo(p.x + ts - ts / 5, p.y)
+            lineTo(p.x + ts - ts / 5, p.y + ts / 5)
+            //lineTo(p.x + ts, p.y + ts / 5)
+            //lineTo(p.x + ts, p.y + ts - ts / 5)
+            //lineTo(p.x + ts - ts / 5, p.y + ts - ts / 5)
+            //lineTo(p.x + ts - ts / 5, p.y + ts)
+            //lineTo(p.x + ts / 5, p.y + ts)
+            lineTo(p.x + ts / 5, p.y + ts - ts / 5)
+            lineTo(p.x, p.y + ts - ts / 5)
+            close()
+        }
+        //drawCircle(color = Color.Cyan, center = Offset(p.x + ts / 2, p.y + ts / 2), radius = 7f)
+        rotate(rec, Offset(p.x + ts / 2, p.y + ts / 2)){
+            drawPath(path = path, color = grayEl)
+        }
+
+    }
+
+    private fun DrawScope.food(
+        p: Offset,
+        ts: Float
+    ){
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x, p.y + ts/3),
+            size = Size(ts / 3f, ts / 3f)
+        )
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x  + ts/3, p.y),
+            size = Size(ts / 3f, ts / 3f)
+        )
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x  + ts/3, p.y +ts / 3 * 2),
+            size = Size(ts / 3f, ts / 3f)
+        )
+        drawRect(
+            color = grayEl,
+            topLeft = Offset(p.x + ts/3 * 2, p.y + ts/3),
+            size = Size(ts / 3f, ts / 3f)
         )
     }
 
@@ -145,21 +314,45 @@ fun Buttons(
     down: () -> Unit,
     start: () -> Unit,
 ){
-    Row(modifier = modifier){
-        Button(onClick = {left()}) {
-            Text("left")
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = CenterHorizontally) {
+
+        IconButton(
+            onClick = { up() },
+            modifier = Modifier.border(width = 2.dp, color = grayEl)
+        ) {
+            Icon(Icons.Filled.ArrowCircleUp, contentDescription = "up", modifier = Modifier.size(80.dp), tint = grayEl)
         }
-        Button(onClick = right) {
-            Text("right")
+
+        Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = { left() },
+                modifier = Modifier.border(width = 2.dp, color = grayEl)
+            ) {
+                Icon(Icons.Filled.ArrowCircleLeft, contentDescription = "left", modifier = Modifier.size(80.dp), tint = grayEl)
+            }
+
+            Spacer(modifier = Modifier.size(100.dp))
+
+            IconButton(
+                onClick = { right() },
+                modifier = Modifier.border(width = 2.dp, color = grayEl)
+            ) {
+                Icon(Icons.Filled.ArrowCircleRight, contentDescription = "right", modifier = Modifier.size(80.dp), tint = grayEl)
+            }
         }
-        Button(onClick = up) {
-            Text("up")
+
+        IconButton(
+            onClick = { down() },
+            modifier = Modifier.border(width = 2.dp, color = grayEl)
+        ) {
+            Icon(Icons.Filled.ArrowCircleDown, contentDescription = "down", modifier = Modifier.size(80.dp), tint = grayEl)
         }
-        Button(onClick = down) {
-            Text("down")
-        }
-        Button(onClick = { start() }) {
-            Text("Start")
+        Spacer(modifier = Modifier.size(50.dp))
+        IconButton(onClick = { start() }, modifier = Modifier.align(Alignment.End)) {
+            Icon(Icons.Filled.RestartAlt, contentDescription = "start", modifier = Modifier.size(60.dp), tint = grayEl)
         }
     }
 }
@@ -188,24 +381,32 @@ fun Buttons(
             if(direct != up) direct = down
         }
 
-        val mutex = Mutex()
+        private val mutex = Mutex()
+
+        private var delay: Long = 0
+        private var play = false
+        private var bodyDir = BodyDir.RIGHT
+        var snakeLength = 3
+
         private val _snake = MutableStateFlow(
             SnakeState(
                 food = 0 to 0,
-                snake = listOf(7 to 7)
+                snake = listOf(Triple(7, 7, BodyDir.RIGHT)),
+                0
             )
         )
         val snake: StateFlow<SnakeState> = _snake
-        private var delay: Long = 0
-        private var play = false
-        var snakeLength = 3
+
 
         fun startNewGame(){
             _snake.value = SnakeState(
                 food = Random.nextInt(boardSize) to Random.nextInt(boardSize),
-                snake = listOf(7 to 7)
+                snake = listOf(Triple(7, 7, BodyDir.RIGHT)),
+                0
+
             )
-            snakeLength = 4
+            direct = right
+            snakeLength = 3
             delay = 280
             play = true
             startGame()
@@ -231,14 +432,20 @@ fun Buttons(
 
                         val newPosition = snakeHead.let {p ->
                             mutex.withLock {
-                                Pair(
+                                Triple(
                                     (p.first + direct.first) % boardSize,
-                                    (p.second + direct.second) % boardSize
+                                    (p.second + direct.second) % boardSize,
+                                    when(direct){
+                                        up -> BodyDir.UP
+                                        down -> BodyDir.DOWN
+                                        left -> BodyDir.LEFT
+                                        else -> BodyDir.RIGHT
+                                    }
                                 )
                             }
                         }
 
-                        val newFood = if(newPosition == snakeState.food){
+                        val newFood = if(newPosition.first == snakeState.food.first && newPosition.second == snakeState.food.second){
                             snakeLength++
                             delay -= when{
                                 delay > 200 -> 20
@@ -258,7 +465,9 @@ fun Buttons(
                             var foodPosition = 0 to 0
                             while(!correctFood){
                                 foodPosition = Random.nextInt(boardSize) to Random.nextInt(boardSize)
-                                correctFood = !snakeState.snake.contains(foodPosition)
+                                correctFood = !snakeState.snake.any {
+                                    it.first == foodPosition.first && it.second == foodPosition.second
+                                }
                             }
                             foodPosition
                         }else{
@@ -271,9 +480,10 @@ fun Buttons(
 
                         snakeState.copy(
                             food = foodPosition,
-                            snake = listOf(newPosition) + snakeState.snake.take(snakeLength - 1))
+                            snake = listOf(newPosition) + snakeState.snake.take(snakeLength - 1),
+                            snakeLength - 3
+                        )
                     }
-
                     }
                 }
             }
