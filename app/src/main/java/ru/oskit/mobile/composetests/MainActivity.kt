@@ -18,8 +18,14 @@ import androidx.compose.material.icons.filled.ArrowCircleLeft
 import androidx.compose.material.icons.filled.ArrowCircleRight
 import androidx.compose.material.icons.filled.ArrowCircleUp
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.outlined.ArrowCircleDown
+import androidx.compose.material.icons.outlined.ArrowCircleLeft
+import androidx.compose.material.icons.outlined.ArrowCircleRight
+import androidx.compose.material.icons.outlined.ArrowCircleUp
+import androidx.compose.material.icons.rounded.ArrowCircleUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -321,34 +327,35 @@ fun Buttons(
 
         IconButton(
             onClick = { up() },
-            modifier = Modifier.border(width = 2.dp, color = grayEl)
+            modifier = Modifier.border(width = 2.dp, color = grayEl, shape = ShapeDefaults.Medium)
         ) {
-            Icon(Icons.Filled.ArrowCircleUp, contentDescription = "up", modifier = Modifier.size(80.dp), tint = grayEl)
+            Icon(Icons.Outlined.ArrowCircleUp, contentDescription = "up", modifier = Modifier.size(80.dp), tint = grayEl)
+
         }
 
         Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = { left() },
-                modifier = Modifier.border(width = 2.dp, color = grayEl)
+                modifier = Modifier.border(width = 2.dp, color = grayEl, shape = ShapeDefaults.Medium)
             ) {
-                Icon(Icons.Filled.ArrowCircleLeft, contentDescription = "left", modifier = Modifier.size(80.dp), tint = grayEl)
+                Icon(Icons.Outlined.ArrowCircleLeft, contentDescription = "left", modifier = Modifier.size(80.dp), tint = grayEl)
             }
 
             Spacer(modifier = Modifier.size(100.dp))
 
             IconButton(
                 onClick = { right() },
-                modifier = Modifier.border(width = 2.dp, color = grayEl)
+                modifier = Modifier.border(width = 2.dp, color = grayEl, shape = ShapeDefaults.Medium)
             ) {
-                Icon(Icons.Filled.ArrowCircleRight, contentDescription = "right", modifier = Modifier.size(80.dp), tint = grayEl)
+                Icon(Icons.Outlined.ArrowCircleRight, contentDescription = "right", modifier = Modifier.size(80.dp), tint = grayEl)
             }
         }
 
         IconButton(
             onClick = { down() },
-            modifier = Modifier.border(width = 2.dp, color = grayEl)
+            modifier = Modifier.border(width = 2.dp, color = grayEl, shape = ShapeDefaults.Medium)
         ) {
-            Icon(Icons.Filled.ArrowCircleDown, contentDescription = "down", modifier = Modifier.size(80.dp), tint = grayEl)
+            Icon(Icons.Outlined.ArrowCircleDown, contentDescription = "down", modifier = Modifier.size(80.dp), tint = grayEl)
         }
         Spacer(modifier = Modifier.size(50.dp))
         IconButton(onClick = { start() }, modifier = Modifier.align(Alignment.End)) {
@@ -385,8 +392,7 @@ fun Buttons(
 
         private var delay: Long = 0
         private var play = false
-        private var bodyDir = BodyDir.RIGHT
-        var snakeLength = 3
+        private var snakeLength = 5
 
         private val _snake = MutableStateFlow(
             SnakeState(
@@ -406,7 +412,7 @@ fun Buttons(
 
             )
             direct = right
-            snakeLength = 3
+            snakeLength = 5
             delay = 280
             play = true
             startGame()
@@ -474,14 +480,18 @@ fun Buttons(
                             snakeState.food
                         }
 
-                        if (snakeState.snake.contains(newPosition)){
+                        if (snakeState.snake.any {
+                                it.first == newPosition.first && it.second == newPosition.second
+                            }
+                        ){
                             play = false
+                            return@launch
                         }
 
                         snakeState.copy(
                             food = foodPosition,
                             snake = listOf(newPosition) + snakeState.snake.take(snakeLength - 1),
-                            snakeLength - 3
+                            snakeLength - 5
                         )
                     }
                     }
